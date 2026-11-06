@@ -34,6 +34,20 @@ module.exports = {
     return record;
   },
 
+  // Update every record of a character that matches `filter` with the fields in `patch`
+  patch(cid, filter, patch) {
+    db = loadDb();
+    let n = 0;
+    for (const r of db[String(cid)] || []) {
+      if (filter(r)) {
+        Object.assign(r, patch);
+        n++;
+      }
+    }
+    if (n) save();
+    return n;
+  },
+
   get(cid) {
     db = loadDb();
     return db[String(cid)] || [];

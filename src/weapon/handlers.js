@@ -3,14 +3,17 @@ const db = require("./database");
 const citizenStore = require("../shared/citizens");
 const ui = require("./components");
 
-module.exports = ({ sendMessage, interactionCallback, addMemberRole, removeMemberRole }) => {
+const logs = require("./logs");
+
+module.exports = (api) => {
+const { interactionCallback, addMemberRole, removeMemberRole } = api;
 const E = config.emojiText;
 
 // ---- !weapon command ----
 function onMessage(msg) {
   if (msg.author && msg.author.bot) return;
   if (msg.content && msg.content.trim().toLowerCase() === config.command) {
-    sendMessage(msg.channel_id, ui.mainPanel());
+    api.sendMessage(msg.channel_id, ui.mainPanel());
   }
 }
 
@@ -31,6 +34,36 @@ const readFields = (i) => {
 
 const reply = (i, content) => interactionCallback(i, 4, ui.ephemeralReply(content));
 
+// ---- "Taking Care" button on the 24h staff alert ----
+async function onAck(i) {
+  const user = (i.member && i.member.user) || i.user;
+  const roles = (i.member && i.member.roles) || [];
+  const isAdmin = (BigInt(i.member?.permissions || 0) & 8n) !== 0n;
+  if (!isAdmin && !(config.lcStaffRoleId && roles.includes(config.lcStaffRoleId))) {
+    return reply(i, `${E} ❌ هذا الزر لفريق LC Staff فقط. | LC Staff only.`);
+  }
+
+  const cid = i.data.custom_id.slice(ui.ACK_PREFIX.length);
+  const now = Math.floor(Date.now() / 1000);
+  const n = db.patch(cid, (r) => !r.ackAt, { ackAt: now, ackBy: user.id });
+  const records = db.get(cid);
+  if (!n || !records.length) return reply(i, `${E} ℹ️ تم التعامل مع هذه الحالة مسبقاً. | Already handled.`);
+
+  // Edit the alert message: remove the button, show who is handling it
+  return interactionCallback(
+    i,
+    7,
+    ui.staffAlert({
+      cid,
+      name: records[0].name,
+      discordId: records[0].discordId,
+      records,
+      ackedBy: user.id,
+      now,
+    })
+  );
+}
+
 // ---- buttons / modals ----
 async function onInteraction(i) {
   // Buttons
@@ -38,6 +71,7 @@ async function onInteraction(i) {
     if (i.data.custom_id === "weapon_add") return interactionCallback(i, 9, ui.addModal());
     if (i.data.custom_id === "weapon_remove") return interactionCallback(i, 9, ui.removeModal());
     if (i.data.custom_id === "weapon_check") return interactionCallback(i, 9, ui.checkModal());
+    if (i.data.custom_id.startsWith(ui.ACK_PREFIX)) return onAck(i);
     return;
   }
 
@@ -102,18 +136,8 @@ async function onInteraction(i) {
         `- **السلاح:** \`${weapon}\``
     );
 
-    // Send log message
-    return sendMessage(
-      config.logChannelId,
-      ui.logMessage("Weapon Added | إضافة سلاح", config.colors.add, [
-        `- **Given By | تم الإعطاء بواسطة:** <@${user.id}>`,
-        `- **Received By | المستلم:** <@${discordId}>`,
-        `- **Character Id | ايدي الشخصية:** \`${cid}\``,
-        `- **Name | الاسم:** ${name}`,
-        `- **Weapon | السلاح:** ${weapon}`,
-        `- **Time | الوقت:** <t:${now}:F>`,
-      ])
-    );
+    // Log type 1: weapon added
+    return logs.logAdded(api, { user, discordId, cid, name, weapon, now });
   }
 
   // ---- 2) Remove Weapon ----
@@ -160,19 +184,8 @@ async function onInteraction(i) {
         `- **عدد الأسلحة المحذوفة:** ${removed.length}`
     );
 
-    return sendMessage(
-      config.logChannelId,
-      ui.logMessage("Weapon Removed | حذف سلاح", config.colors.remove, [
-        `- **Removed By | تم الحذف بواسطة:** <@${user.id}>`,
-        `- **Target | المستهدف:** ${targetDiscordId ? `<@${targetDiscordId}>` : `\`${targetCid}\``} (${targetName})`,
-        `- **Character Id | ايدي الشخصية:** \`${targetCid}\``,
-        `- **Weapons Removed | الأسلحة المحذوفة:**`,
-        ...removed.map(
-          (r, n) => `  • **#${n + 1}** \`${r.weapon}\` — أضافه <@${r.givenBy}> <t:${r.at}:R>`
-        ),
-        `- **Time | الوقت:** <t:${now}:F>`,
-      ])
-    );
+    // Log type 2: weapon deleted
+    return logs.logRemoved(api, { user, targetDiscordId, cid: targetCid, name: targetName, removed, now });
   }
 
   // ---- 3) Check Weapons ----

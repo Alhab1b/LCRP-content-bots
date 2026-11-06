@@ -67,7 +67,39 @@ const logMessage = (title, color, lines) =>
 
 const ephemeralReply = (content) => message([container([text(content)], colors.info)], true);
 
+// ---- weapon-holding reminders ----
+const ACK_PREFIX = "weapon_ack:";
+
+// Alert sent to the LC Staff role. When `ackedBy` is set it becomes the "handled" version (no button).
+function staffAlert({ cid, name, discordId, records, roleId, hours, escalationHours, ackedBy, now }) {
+  const lines = [
+    `- **Player | اللاعب:** <@${discordId}> (${name})`,
+    `- **Character Id | ايدي الشخصية:** \`${cid}\``,
+    `- **Weapons | الأسلحة:**`,
+    ...records.map((r) => `  • \`${r.weapon}\` — <t:${r.at}:R> (<@${r.givenBy}>)`),
+  ];
+  const body = [text(`## ${E} Weapon Retrieval Needed | استرجاع سلاح`), separator(), text(lines.join("\n"))];
+
+  if (ackedBy) {
+    body.push(separator(), text(`✅ **Handled by | تم الاستلام بواسطة:** <@${ackedBy}> — <t:${now}:R>`));
+    return message([container(body, colors.add)]);
+  }
+
+  body.push(
+    separator(),
+    text(
+      `<@&${roleId}> مضى أكثر من **${hours} ساعة** على هذا السلاح، يرجى استرجاعه من اللاعب ثم الضغط على الزر.\n` +
+        `More than **${hours}h** have passed. Please retrieve it, then press the button.\n` +
+        `⏳ If nobody responds within **${escalationHours}h**, Content Staff will be DMed.`
+    ),
+    actionRow([{ type: 2, style: 3, custom_id: ACK_PREFIX + cid, label: "Taking Care | استلمت الحالة", emoji }])
+  );
+  return { ...message([container(body, colors.warn)]), allowed_mentions: { roles: [roleId] } };
+}
+
 module.exports = {
+  ACK_PREFIX,
+  staffAlert,
   mainPanel,
   addModal,
   removeModal,

@@ -10,6 +10,8 @@ exports.start = () => {
   const api = createRest(cfg.token, "WEAPON");
   const { onMessage, onInteraction } = require("./handlers")(api);
 
+  require("./reminders")(api).start();
+
   createGateway({
     name: "WEAPON",
     token: cfg.token,

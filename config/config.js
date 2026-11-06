@@ -29,12 +29,26 @@ module.exports = {
   // ---------------- Weapon bot (!weapon) ----------------
   weapon: {
     token: process.env.WEAPON_BOT_TOKEN || main,
-    logChannelId: process.env.LOG_CHANNEL_ID || "1560295097298456637",
-    weaponRoleId: process.env.WEAPON_ROLE_ID || "1560323930991099935",
+    logChannelId: process.env.LOG_CHANNEL_ID || "1559778072213852292",
+    weaponRoleId: process.env.WEAPON_ROLE_ID || "1565477216131878912",
     command: "!weapon", // not case sensitive
-    emoji: { name: "LCC", id: "1565464044268429514" },
-    emojiText: "<:LCC:1565464044268429514>",
-    colors: { panel: 0x2b2d31, add: 0x57f287, remove: 0xed4245, info: 0x5865f2 },
+    emoji: { name: "LC", id: "1565460716620619776" },
+    emojiText: "<:LC:1565460716620619776>",
+    colors: { panel: 0x2b2d31, add: 0x57f287, remove: 0xed4245, info: 0x5865f2, warn: 0xfee75c },
+
+    // Two log types: "add weapon" and "delete weapon" (each can go to its own channel, default = logChannelId)
+    logChannels: {
+      add: process.env.ADD_LOG_CHANNEL_ID || process.env.LOG_CHANNEL_ID || "1559778072213852292",
+      remove: process.env.REMOVE_LOG_CHANNEL_ID || process.env.LOG_CHANNEL_ID || "1559778072213852292",
+    },
+
+    // Weapon-holding reminders
+    lcStaffRoleId: process.env.LC_STAFF_ROLE_ID || "", // pinged after firstAlertHours
+    contentStaffRoleId: process.env.CONTENT_STAFF_ROLE_ID || "", // DMed after escalationHours
+    alertChannelId: process.env.ALERT_CHANNEL_ID || process.env.LOG_CHANNEL_ID || "1559778072213852292",
+    firstAlertHours: Number(process.env.FIRST_ALERT_HOURS || 24),
+    escalationHours: Number(process.env.ESCALATION_HOURS || 8), // counted from the first alert
+    checkIntervalMs: 60 * 1000,
   },
 
   // ---------------- Role bot (channel -> role) ----------------
